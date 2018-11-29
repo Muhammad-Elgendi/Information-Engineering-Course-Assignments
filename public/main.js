@@ -9,8 +9,8 @@ function transpostionEncript(){
                   data: { "key": key, "plain": plain ,"cipher": cipher }
                 });
     request.done(function( msg ) {
-      // $( "#ciphertext1" ).val(JSON.stringify(msg));
-      $( "#ciphertext1" ).val(msg);
+      $( "#ciphertext1" ).val(JSON.stringify(msg));
+      // $( "#ciphertext1" ).val(msg);
     });
   }
   else
@@ -31,6 +31,7 @@ function transpostionDecript(){
     request.done(function( msg ) {
       $( "#plaintext1" ).val(JSON.stringify(msg));
       // $( "#plaintext1" ).val(msg);
+
     });
   }
   else

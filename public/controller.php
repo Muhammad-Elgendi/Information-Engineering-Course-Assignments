@@ -3,7 +3,7 @@
 require_once '../vendor/autoload.php';
 use Phpml\Math\Matrix;
 
-// Render as JSON
+// Render as JSON 
 header('Content-Type: application/json');
 
 // Perpare data variables
@@ -56,49 +56,67 @@ if(empty($cipher) && !empty($plain)){
         $output_cipher.= getColumnString($matrix,$row_count,$col);
     }
 
-    // echo json_encode($output_cipher);
-    echo ($output_cipher);
+    echo json_encode($output_cipher);
 }
 
 if(empty($plain) && !empty($cipher)){
     // Decryption request
     $row_count = ceil(strlen($cipher)/strlen($key));
 
-    // create matrix of table content
-    // $matrix=  array();
-    // $counter = 0;
-    // foreach (range(1,$row_count) as $row) {
-    //     foreach (range(1,$column_count) as $col) {
-    //         $matrix[$row][$col] = $cipher[$counter];
-    //         $counter++;
-    //     }
-    // }
+    // create chunks of cipher
+    $chunks=  array();
+    $counter = 0;
+    for($j = 0 ; $j < strlen($key) ;$j++){
+        for ($i =0 ; $i< $row_count ; $i++){   
+            $chunks[$j][$i] = $cipher[$counter];
+            $counter++;
+        }
+    }
 
     // rank the characters in the key
     $order = array();
     for($i =0 ; $i < strlen($key) ; $i++){
-        $order[$key[$i]] = ord($key[$i]) - 64;
+        $order[] = ord($key[$i]) - 64;
     }
 
-    echo json_encode($order);
-    // echo ($order);
+    // create matrix of table content
+    $matrix=  array();
+    for($i = 0; $i < strlen($key) ;$i++){
+        $index = array_search(min($order),$order);
+        setColumnString($matrix,$row_count,$index,$chunks[$i]);
+        unset($order[$index]);
+    }
 
+    // resort the matrix ascending based on keys
+    ksort($matrix);
+    for($i =0 ; $i < count($matrix) ; $i++){
+        ksort($matrix[$i]);
+    }
+
+    //format output
+    $output_plain = '';
+    foreach ($matrix as $row) {
+        foreach($row as $char){
+            $output_plain.= $char;
+        }
+    }
+    echo json_encode($output_plain);
 }
 
 
 function getColumnString($matrix,$rows_count,$column){
 
     $values = "";
-    for ($i = 1; $i <= $rows_count; ++$i) {
+    for ($i = 1; $i <= $rows_count; $i++) {
         $values.= $matrix[$i][$column];
     }
 
     return $values;
 }
 
-function setColumnString($matrix,$rows_count,$column,$value){
+function setColumnString(&$matrix,$rows_count,$column,$value){
 
-    for ($i = 1; $i <= $rows_count; ++$i) {
+    for ($i = 0; $i < $rows_count; $i++) {
         $matrix[$i][$column] = $value[$i];
     }
 
