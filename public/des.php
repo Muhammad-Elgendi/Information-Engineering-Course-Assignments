@@ -5,23 +5,80 @@
  * Date : 24/12/2018
  */
 $key ='0001001100110100010101110111100110011011101111001101111111110001';
-$data = null;
+$data ='0000000100100011010001010110011110001001101010111100110111101111';
 $myDes = new Des($key,$data);
 $myDes->generateSubKeys();
+$myDes->encryptData();
+print_r($myDes->getEncryptedDataHex());
 
 class Des{
 
+    /**
+     * Array of Key,data,subKeys,encryptedData
+     */
     public $key;
     public $data;
     public $subKeys;
+    public $encryptedData;
 
-    function __construct($key,$data = null){
+    function __construct($key = null,$data = null){
         $this->key = $key;
         $this->data = $data;
     }
 
+    function setKeyHex($hex){
+        $this->key = hex2bin($hex);
+    }
+
+    function setDataHex($hex){
+        $this->data = hex2bin($hex);
+    }
+
+    function encryptData(){
+        // read data into an array
+        $dataArray = str_split($this->data);    
+
+        // apply pc-1 permutation matrix
+        $ip = $this->readFromCSV('matrices/IP.csv');
+        $permutedData = array();
+        foreach ($ip as $line) {
+            foreach($line as $num){
+                $permutedData[] = $dataArray[(int)$num - 1]; 
+            }
+        }
+
+        // split permuted data into L0 -->0 and R0 -->1
+        $permutedData = array_chunk($permutedData, 32);
+
+        // Des round
+        for($i = 1; $i <= 16 ;$i++){
+            if($i == 1){
+                $left = $permutedData[1];
+                $right = $this->applyXor($permutedData[0],$this->mangler($i,$permutedData[1]));
+            }
+            else{
+                $oldLeft = $left;
+                $left = $right;
+                $right = $this->applyXor($oldLeft,$this->mangler($i,$right));
+            }
+        }
+
+        // reverse order of L16 and R16 to be R16L16
+        $reversedOrder = array_merge($right,$left);
+
+        // apply inverse of intail permutation matrix        
+        $inverse_ip = $this->readFromCSV('matrices/inverse-ip.csv');
+        $permutedData = array();
+        foreach ($inverse_ip as $line) {
+            foreach($line as $num){
+                $permutedData[] = $reversedOrder[(int)$num - 1]; 
+            }
+        }
+        $this->encryptedData =$permutedData;
+    }    
+
     function generateSubKeys(){
-        // read key to an array
+        // read key into an array
         $keyArray = str_split($this->key);    
         
         // apply pc-1 permutation matrix
@@ -39,7 +96,7 @@ class Des{
         $d0 = $permutedKey[1];
         $shift_values = [1,1,2,2,2,2,2,2,1,2,2,2,2,2,2,1];
 
-        // Create C(n) and D(n)
+        // Create C(n) and D(n) and apply shift
         $cds= array();        
         for($i =0 ;$i < 16;$i++){
             if($i==0){
@@ -49,8 +106,6 @@ class Des{
                 $cds[1+$i] = array($this->shiftLeftDes($cds[$i][0],$shift_values[$i]),$this->shiftLeftDes($cds[$i][1],$shift_values[$i]));
             }            
         }
-
-        
 
         // apply pc-2 permutation matrix
         $pc2 = $this->readFromCSV('matrices/pc-2.csv');
@@ -71,6 +126,74 @@ class Des{
             $subKeys[$i] = $tempSubKey;
         }
         $this->subKeys = $subKeys;
+    }
+
+    private function mangler($roundNumber,$previousRight){
+        $expandedRight = $this->expandRight($previousRight);
+
+        // apply xor between key(n) and expanded Right
+        $exoredWithKey = $this->applyXor($this->subKeys[$roundNumber],$expandedRight);
+
+        // split into 8 blocks 
+        $blocks = array_chunk($exoredWithKey,6);
+
+        // load sboxs
+        $sboxs = array();
+        for($i = 1 ; $i <= 8; $i++){
+            
+            $sbox = $this->readFromCSV("matrices/sbox/$i.csv");
+            $sboxLine = array();
+            $sboxArray = array();
+            foreach ($sbox as $line) {
+                foreach($line as $num){
+                    $sboxLine[] = (int)$num; 
+                }
+                $sboxArray[]= $sboxLine;
+                $sboxLine = array();
+            }
+            $sboxs[$i] = $sboxArray;
+            $sboxArray = array();          
+        }
+
+        // apply corresponding sbox
+        $sboxOutput = array();
+        foreach($blocks as $key => $block){
+            $row = bindec($block[0]."".$block[5]);
+            $column = bindec($block[1]."".$block[2]."".$block[3]."".$block[4]);
+            $output = decbin($sboxs[$key+1][$row][$column]);
+            $sboxOutput = array_merge($sboxOutput,str_split(str_pad($output,4,"0",STR_PAD_LEFT)));
+        }
+
+        // apply P permutation matrix
+        $p = $this->readFromCSV('matrices/P.csv');
+        $permutedData = array();
+        foreach ($p as $line) {
+            foreach($line as $num){
+                $permutedData[] = $sboxOutput[(int)$num - 1]; 
+            }
+        }
+        return $permutedData;
+    }
+
+    private function applyXor($a,$b){
+        // apply xor between two operands
+        $output = array();
+        foreach($a as $key => $num){
+            $output[] = (int)((bool)$num xor (bool)$b[$key]);
+        }
+        return $output;
+    }
+
+    private function expandRight($right){
+        // apply E-bit-selection-table
+        $selection = $this->readFromCSV('matrices/E-bit-selection-table.csv');
+        $expandedRight = array();
+        foreach ($selection as $line) {
+            foreach($line as $num){
+                $expandedRight[] = $right[(int)$num - 1]; 
+            }
+        }
+        return $expandedRight;
     }
 
     private function readFromCSV($path){
