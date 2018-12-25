@@ -13,13 +13,7 @@
         $myDes = (new Des)->setDataHex($data_in_hex)->setKeyHex($key_in_hex);
     you can chain the methods calls
 
-  */
-$key ='0001001100110100010101110111100110011011101111001101111111110001';
-$data ='0000000100100011010001010110011110001001101010111100110111101111';
-$myDes = new Des($key,$data);
-$myDes->generateSubKeys()->encryptData();
-echo $myDes->encryptedData."\n";
- 
+  */ 
 
 class Des{
 
