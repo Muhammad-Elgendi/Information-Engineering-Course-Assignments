@@ -4,12 +4,22 @@
  * © Muhammad Elgendi
  * Date : 24/12/2018
  */
+
+ /**
+  * Des class usage :
+     1- intiate constractor from binary-formated data
+        $myDes = new Des($key_in_bin,$data_in_bin);
+     2- intiate constractor from hex-formated data
+        $myDes = (new Des)->setDataHex($data_in_hex)->setKeyHex($key_in_hex);
+    you can chain the methods calls
+
+  */
 $key ='0001001100110100010101110111100110011011101111001101111111110001';
 $data ='0000000100100011010001010110011110001001101010111100110111101111';
 $myDes = new Des($key,$data);
-$myDes->generateSubKeys();
-$myDes->encryptData();
-print_r($myDes->getEncryptedDataHex());
+$myDes->generateSubKeys()->encryptData();
+echo $myDes->encryptedData."\n";
+ 
 
 class Des{
 
@@ -28,10 +38,12 @@ class Des{
 
     function setKeyHex($hex){
         $this->key = hex2bin($hex);
+        return $this;
     }
 
     function setDataHex($hex){
         $this->data = hex2bin($hex);
+        return $this;
     }
 
     function encryptData(){
@@ -74,7 +86,8 @@ class Des{
                 $permutedData[] = $reversedOrder[(int)$num - 1]; 
             }
         }
-        $this->encryptedData =$permutedData;
+        $this->encryptedData =implode("",$permutedData);
+        return $this;
     }    
 
     function generateSubKeys(){
@@ -126,6 +139,7 @@ class Des{
             $subKeys[$i] = $tempSubKey;
         }
         $this->subKeys = $subKeys;
+        return $this;
     }
 
     private function mangler($roundNumber,$previousRight){
